@@ -11,6 +11,9 @@ from django.template.loader import render_to_string
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 from django.core.mail import EmailMessage
+from cart.models import Cart,CartItem
+from cart.views import _cart_id
+import requests
 
 
 
@@ -58,20 +61,111 @@ def register(request):
     }
     return render(request, 'accounts/register.html', context)
 
+# def login(request):
+#     if request.method == 'POST':
+#         email = request.POST['email']
+#         password = request.POST['password']
+#         user = auth.authenticate(email=email,password=password)
+#         if user is not None:
+#             try:
+#                 cart = Cart.objects.get(cart_id = _cart_id(request))
+#                 Is_cart_item_exist = CartItem.objects.filter(cart = cart).exists()
+#                 if Is_cart_item_exist:
+#                     cart_item = CartItem.objects.filter(cart = cart)
+#                     #Getting the product variation by cart id
+#                     product_variation = []
+#                     for item in cart_item:
+#                         variation = item.variations.all()
+#                         product_variation.append(list(variation))
+#                     # Get the cart items from the user to access the product variations
+#                     cart_item = CartItem.objects.filter(user = user)
+#                     ex_var_list = []
+#                     id = []
+#                     for item in cart_item:
+#                         existing_variation = item.variations.all()
+#                         ex_var_list.append(list(existing_variation))
+#                         id.append(item.id)
+                    
+#                     for pr in product_variation:
+#                         if pr in ex_var_list:
+#                             index = ex_var_list.index(pr)
+#                             item_id = id[index]
+#                             item = CartItem.objects.get(id=item_id)
+#                             item.quantity += 1
+#                             item.user = user
+#                             item.save()
+#                         else:
+#                             cart_item = CartItem.objects.filter(cart = cart)
+#                             for item in cart_item:
+#                                 item.user = user
+#                                 item.save()
+                            
+#             except:
+#                 pass
+
+#             auth.login(request,user)
+#             messages.success(request,"You are now logged in")
+#             return redirect('dashboard')
+#         else:
+#             messages.error(request,"Invalid login credentials.")
+#             return redirect('login')
+
+#     return render(request,'accounts/login.html')
 def login(request):
     if request.method == 'POST':
         email = request.POST['email']
         password = request.POST['password']
-        user = auth.authenticate(email=email,password=password)
+        user = auth.authenticate(email=email, password=password)
+        
         if user is not None:
-            auth.login(request,user)
-            messages.success(request,"You are now logged in")
-            return redirect('dashboard')
+            try:
+                # Get the cart for the anonymous user
+                cart = Cart.objects.get(cart_id=_cart_id(request))
+                cart_items = CartItem.objects.filter(cart=cart)
+
+                # Process cart items from the anonymous cart
+                for item in cart_items:
+                    product_variation = list(item.variations.all())
+
+                    # Check if the item already exists in the logged-in user's cart
+                    existing_cart_item = CartItem.objects.filter(user=user, variations__in=product_variation).first()
+
+                    if existing_cart_item:
+                        # Update quantity of the existing item
+                        existing_cart_item.quantity += item.quantity
+                        existing_cart_item.save()
+                    else:
+                        # Add new items to the logged-in user's cart
+                        item.user = user
+                        item.cart = None  # Remove the anonymous cart association
+                        item.save()
+                
+                # Clear the anonymous cart only after merging items
+                cart_items.delete()
+
+            except Exception as e:
+                print(f"Error: {e}")
+
+            # Log the user in and redirect
+            auth.login(request, user)
+            messages.success(request, "You are now logged in")
+            url = request.META.get('HTTP_REFERER')
+            try:
+                query = requests.utils.urlparse(url).query
+                print("Query------",query)
+                params = dict(x.split('=') for x in query.split('&'))
+                if 'next' in params:
+                    next_page = params['next']
+                    return redirect(next_page)
+            except:
+                return redirect('dashboard')
+        
         else:
-            messages.error(request,"Invalid login credentials.")
+            messages.error(request, "Invalid login credentials.")
             return redirect('login')
 
-    return render(request,'accounts/login.html')
+    return render(request, 'accounts/login.html')
+
 
 @login_required(login_url='login')
 def logout(request):
