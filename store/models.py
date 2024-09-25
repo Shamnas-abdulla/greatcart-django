@@ -24,9 +24,9 @@ class Product(models.Model):
     
 class VariationManager(models.Manager):
     def colors(self):
-        return super(VariationManager,self).filter(variation_category='color',is_active=True)
+        return super(VariationManager,self).filter(variation_category='color',is_active=True).distinct()
     def sizes(self):
-        return super(VariationManager,self).filter(variation_category='size',is_active=True)
+        return super(VariationManager,self).filter(variation_category='size',is_active=True).distinct()
 
     
 variation_category_choices = (
@@ -42,6 +42,9 @@ class Variation(models.Model):
     created_date = models.DateTimeField(auto_now=True)
 
     objects = VariationManager()
+
+    class Meta:
+        unique_together = ('variation_category', 'variation_value')
 
     def __str__(self):
         return self.variation_value
