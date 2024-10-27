@@ -1,6 +1,6 @@
 from django.shortcuts import render,get_object_or_404, redirect
 from django.http import Http404
-from .models import Product, ReviewRating
+from .models import Product, ReviewRating, ProductGallery
 from category.models import Category
 from cart.models import CartItem
 from cart.views import _cart_id
@@ -51,29 +51,38 @@ def product_detail(request,category_slug,product_slug):
     else:
         order_product = None
     reviews = ReviewRating.objects.filter(product_id=single_product.id,status=True)
+    product_gallery = ProductGallery.objects.filter(product=single_product.id)
 
     context = {
         'single_product':single_product,
         'in_cart':in_cart,
         'order_product':order_product,
         'reviews':reviews,
+        'product_gallery':product_gallery,
     }
     return render(request,'store/product_detail.html',context)
 
 def search(request):
+    products = Product.objects.none()  # Default empty queryset
+    product_count = 0
+    
     if 'keyword' in request.GET:
-        keyword = request.GET['keyword']
-        if keyword:
-            products = Product.objects.order_by('created_date').filter(Q(description__icontains=keyword) | Q(product_name__icontains=keyword)) 
+        keyword = request.GET['keyword'].strip()  # Strip whitespace from the keyword
+        if keyword:  # Check if keyword is not empty
+            products = Product.objects.filter(
+                Q(description__icontains=keyword) | Q(product_name__icontains=keyword)
+            ).order_by('created_date')
             product_count = products.count()
-        context = {
-            'products':products,
-            'product_count':product_count,
-        }
-    else:
-        pass
-        
-    return render(request,'store/store.html',context)
+        else:
+            products = Product.objects.all()  # If keyword is empty, show all products
+            product_count = products.count()
+
+    context = {
+        'products': products,
+        'product_count': product_count,
+    }
+    
+    return render(request, 'store/store.html', context)
 
 def submit_review(request,product_id):
     url = request.META.get('HTTP_REFERER')

@@ -1,3 +1,4 @@
+
 /* Hide radio button */
 .rate > input {
     display: none;
@@ -43,19 +44,4 @@ label:hover ~ input:checked ~ label {
 
 .rating-star li{
     color: #cc9000 !important;
-}
-
-ul.thumb{
-    margin: 0 auto;
-    padding: 0;
-    float: left;
-}
-ul.thumb li{
-    list-style: none;
-    margin: 10px;
-}
-ul.thumb li img{
-    width: 80px;
-    height: 80px;
-    border: 1px solid grey;
 }
